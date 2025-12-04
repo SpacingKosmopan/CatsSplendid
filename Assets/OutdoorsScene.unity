@@ -388,8 +388,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.467265, y: 0.7980769, z: 0.91688776}
-  m_Center: {x: 0.001331985, y: 0.42996165, z: 0.13307309}
+  m_Size: {x: 0.467265, y: 0.82535607, z: 0.91688776}
+  m_Center: {x: 0.001331985, y: 0.41632208, z: 0.13307309}
 --- !u!114 &209507806
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -402,7 +402,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4c5642d4932d61419765f64a016f1de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CatMovement
-  moveSpeed: 5
+  moveSpeed: 1
 --- !u!54 &209507807
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -880,7 +880,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 73c176f402d2c2f4d929aa5da7585d17, type: 2}
+  - {fileID: 2100000, guid: 9278ce653fcf82045b08bfc194376b98, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
