@@ -19,6 +19,10 @@ public class PlayerController : MonoBehaviour
     public Image chargeIndicator;
     public Sprite[] chargeSprites; // 0..4
 
+    [Header("Running")]
+    public float runMultiplier = 2f;
+    private bool isRunning = false;
+
     private float chargeTimer = 0f;
     private bool charging = false;
     private bool isGrounded = true;
@@ -48,6 +52,9 @@ public class PlayerController : MonoBehaviour
 
         inputActions.Player.Jump.started += ctx => StartCharging();
         inputActions.Player.Jump.canceled += ctx => ReleaseJump();
+
+        inputActions.Player.Run.started += ctx => isRunning = true;
+        inputActions.Player.Run.canceled += ctx => isRunning = false;
     }
 
     private void OnDisable()
@@ -80,7 +87,8 @@ public class PlayerController : MonoBehaviour
 
         Vector3 dir = f * moveInput.y + r * moveInput.x;
 
-        rb.MovePosition(rb.position + dir * moveSpeed * Time.fixedDeltaTime);
+        float speed = moveSpeed * (isRunning ? runMultiplier : 1f);
+        rb.MovePosition(rb.position + dir * speed * Time.fixedDeltaTime);
 
         if (dir.sqrMagnitude > 0.01f)
         {
@@ -91,9 +99,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovementAnimation()
     {
-        bool walking = moveInput.sqrMagnitude > 0.01f && !isJumping;
-        animator.SetBool("isWalking", walking);
+        bool moving = moveInput.sqrMagnitude > 0.01f && !isJumping;
+
+        animator.SetBool("isWalking", moving); // chodzenie zawsze działa
+        animator.SetBool("isRunning", moving && isRunning); // bieganie tylko jeśli istnieje animacja
     }
+
 
     // --------------------------
     // Charging Jump
