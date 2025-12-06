@@ -1,47 +1,47 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using System.Collections;
 
-public class CatMovement : MonoBehaviour
+public class PlayerController : MonoBehaviour
 {
+    [Header("Movement")]
     public float moveSpeed = 5f;
-    private Vector2 moveInput;
+    public float rotationSpeed = 3f;
+
+    [Header("Charged Jump")]
+    public float minJumpForce = 4f;
+    public float maxJumpForce = 12f;
+    public float chargeTime = 1f;
+    public float jumpDelay = 1f;
+
+    [Header("UI Charge Indicator")]
+    public Image chargeIndicator;
+    public Sprite[] chargeSprites; // 0..4
+
+    private float chargeTimer = 0f;
+    private bool charging = false;
+    private bool isGrounded = true;
+    private bool isJumping = false;
+    private bool jumpPending = false;
 
     private Rigidbody rb;
     private Animator animator;
     private InputSystem_Actions inputActions;
-    public Transform cameraTransform;
-
-
-// ---- SKOK ----
-public float[] jumpForces = new float[4];   
-public float forwardJumpMultiplier = 2f;     // ile dodatkowej siły do przodu
-public float jumpChargeTime = 0.3f;
-
-private float chargeTimer = 0f;
-private int jumpChargeLevel = 0;
-private bool chargingJump = false;
-public bool isGrounded = true;
-
-public float jumpDelay = 1f;        // czas ładowania animacji przed skokiem
-private float jumpTimer = 0f;
-private bool jumpQueued = false;    // true, gdy chcemy skoczyć po animacji
-
-
-    // ---- UI ----
-    public Image chargeIndicator;
-    public Sprite[] chargeSprites;              // 0–4
+    private Transform cameraTransform;
+    private Vector2 moveInput;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
+        cameraTransform = Camera.main.transform;
         inputActions = new InputSystem_Actions();
     }
 
     private void OnEnable()
     {
-        inputActions.Player.Enable();
+        inputActions.Enable();
 
         inputActions.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         inputActions.Player.Move.canceled += ctx => moveInput = Vector2.zero;
@@ -52,165 +52,146 @@ private bool jumpQueued = false;    // true, gdy chcemy skoczyć po animacji
 
     private void OnDisable()
     {
-        inputActions.Player.Disable();
+        inputActions.Disable();
+    }
+
+    private void Update()
+    {
+        HandleMovementAnimation();
+        HandleCharging(Time.deltaTime);
     }
 
     private void FixedUpdate()
     {
-        MoveCharacter();
-        UpdateRotation();
-        UpdateCharge();
+        Move();
     }
 
-    // -------------------------
-    //       RUCH
-    // -------------------------
-private void MoveCharacter()
-{
-    Vector3 camForward = cameraTransform.forward;
-    Vector3 camRight = cameraTransform.right;
-
-    // Zabezpieczenie: tylko płaszczyzna XZ
-    camForward.y = 0;
-    camRight.y = 0;
-    camForward.Normalize();
-    camRight.Normalize();
-
-    // Ruch względem kamery
-    Vector3 moveDir = camForward * moveInput.y + camRight * moveInput.x;
-
-    Vector3 move = moveDir * moveSpeed * Time.fixedDeltaTime;
-    rb.MovePosition(rb.position + move);
-
-    // Obrót — tylko jeśli coś wciskasz
-    if (moveDir != Vector3.zero)
+    // --------------------------
+    // Movement
+    // --------------------------
+    private void Move()
     {
-        transform.rotation = Quaternion.Slerp(
-            transform.rotation,
-            Quaternion.LookRotation(moveDir),
-            0.15f
-        );
+        if (isJumping || jumpPending) return;
+
+        Vector3 f = cameraTransform.forward;
+        Vector3 r = cameraTransform.right;
+        f.y = 0; r.y = 0;
+        f.Normalize(); r.Normalize();
+
+        Vector3 dir = f * moveInput.y + r * moveInput.x;
+
+        rb.MovePosition(rb.position + dir * moveSpeed * Time.fixedDeltaTime);
+
+        if (dir.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        }
     }
 
-    animator.SetBool("isWalking", moveDir != Vector3.zero);
-}
-
-private void UpdateRotation()
-{
-    if (moveInput == Vector2.zero) return;
-
-    Vector3 camForward = cameraTransform.forward;
-    Vector3 camRight = cameraTransform.right;
-
-    camForward.y = 0;
-    camRight.y = 0;
-    camForward.Normalize();
-    camRight.Normalize();
-
-    Vector3 moveDir = camForward * moveInput.y + camRight * moveInput.x;
-
-    transform.rotation = Quaternion.Slerp(
-        transform.rotation,
-        Quaternion.LookRotation(moveDir),
-        5f * Time.deltaTime // teraz obrót wolniejszy i płynny
-    );
-}
-
-
-    // -------------------------
-//       ŁADOWANIE SKOKU
-// -------------------------
-
-private void StartCharging()
-{
-    if (!isGrounded) return;
-
-    chargingJump = true;
-    jumpChargeLevel = 0;
-    chargeTimer = 0f;
-    jumpTimer = 0f;
-
-    // Uruchamiamy animację skoku
-    animator.SetBool("isJumping", true);
-}
-
-private void UpdateCharge()
-{
-    if (!chargingJump || !isGrounded) return;
-
-    // Odliczamy czas skoku (1 sekunda = czas animacji)
-    jumpTimer += Time.deltaTime;
-
-    // Zwiększamy poziom siły co jumpChargeTime (opcjonalne)
-    chargeTimer += Time.deltaTime;
-    if (chargeTimer >= jumpChargeTime && jumpChargeLevel < 4)
+    private void HandleMovementAnimation()
     {
+        bool walking = moveInput.sqrMagnitude > 0.01f && !isJumping;
+        animator.SetBool("isWalking", walking);
+    }
+
+    // --------------------------
+    // Charging Jump
+    // --------------------------
+    private void StartCharging()
+    {
+        if (!isGrounded) return;
+
+        charging = true;
         chargeTimer = 0f;
-        jumpChargeLevel++;
+
+        animator.SetBool("isChargingJump", true);
         UpdateUI();
     }
 
-    // Po 1 sekundzie animacja kończy się → wykonaj fizyczny skok
-    if (jumpTimer >= jumpDelay)
+    private void ReleaseJump()
     {
+        if (!charging) return;
+
+        charging = false;
+
+        // natychmiastowa animacja puszczenia spacji
+        animator.SetBool("isChargingJump", false);
+        animator.SetTrigger("jumpReleased");
+
+        UpdateUI();
+
+        animator.SetTrigger("doJump");
+
+        jumpPending = true;
+
+        // rozpocznij korutynę fizycznego skoku
+        StartCoroutine(JumpAfterDelay(jumpDelay));
+    }
+
+    private IEnumerator JumpAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
         PerformJump();
     }
-}
 
-
-private void PerformJump()
-{
-    if (jumpChargeLevel == 0) jumpChargeLevel = 1; // minimalny poziom
-
-    float upForce = jumpVerticalForces[jumpChargeLevel - 1];
-    float forwardForce = jumpForwardForces[jumpChargeLevel - 1];
-
-    rb.AddForce(Vector3.up * upForce, ForceMode.Impulse);
-    rb.AddForce(transform.forward * forwardForce, ForceMode.Impulse);
-
-    chargingJump = false;
-    jumpChargeLevel = 0;
-    jumpTimer = 0f;
-}
-
-public float[] jumpVerticalForces = new float[4];
-public float[] jumpForwardForces = new float[4];
-
-private void ReleaseJump()
-{
-    if (!chargingJump) return;
-
-    chargingJump = false;
-    jumpChargeLevel = 0;
-    jumpQueued = false;
-    jumpTimer = 0f;
-
-    UpdateUI();
-
-    // anuluj animację ładowania
-    animator.SetBool("isJumping", false);
-}
-
-private void OnCollisionEnter(Collision collision)
-{
-    if (collision.gameObject.CompareTag("Ground"))
+    private void HandleCharging(float dt)
     {
-        isGrounded = true;
-        animator.SetBool("isJumping", false);
+        if (!charging) return;
+
+        chargeTimer += dt;
+        chargeTimer = Mathf.Clamp(chargeTimer, 0f, chargeTime);
+
+        UpdateUI();
     }
-}
 
+    private void PerformJump()
+    {
+        if (!isGrounded) return;
 
+        isGrounded = false;
+        isJumping = true;
+        jumpPending = false;
 
-    // -------------------------
-    //       UI
-    // -------------------------
+        float t = chargeTimer / chargeTime;
+        float jumpForce = Mathf.Lerp(minJumpForce, maxJumpForce, t);
 
+        Vector3 forward = transform.forward.normalized;
+        Vector3 jumpVector = (Vector3.up + forward).normalized * jumpForce;
+
+        rb.AddForce(jumpVector, ForceMode.Impulse);
+
+        chargeTimer = 0f;
+        UpdateUI();
+    }
+
+    // --------------------------
+    // Landing
+    // --------------------------
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.contacts[0].normal.y > 0.5f)
+        {
+            isGrounded = true;
+            isJumping = false;
+        }
+    }
+
+    // --------------------------
+    // UI
+    // --------------------------
     private void UpdateUI()
     {
-        if (chargeIndicator != null && chargeSprites.Length >= 5)
+        if (chargeIndicator == null || chargeSprites == null || chargeSprites.Length == 0) return;
+
+        int level = 0;
+        if (charging)
         {
-            chargeIndicator.sprite = chargeSprites[jumpChargeLevel];
+            float percent = chargeTimer / chargeTime;
+            level = Mathf.FloorToInt(percent * (chargeSprites.Length - 1));
+            level = Mathf.Clamp(level, 0, chargeSprites.Length - 1);
         }
+
+        chargeIndicator.sprite = chargeSprites[level];
     }
 }
