@@ -451,6 +451,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 0b4a5b2b770f3d64e97496982b13c366, type: 3}
   - {fileID: 21300000, guid: ba7e7e0475d99e84aa3693162c5fcd0d, type: 3}
   - {fileID: 21300000, guid: 62aa14db73851cd46a76b7181e5d5bd3, type: 3}
+  runMultiplier: 3
 --- !u!54 &209507807
 Rigidbody:
   m_ObjectHideFlags: 0
