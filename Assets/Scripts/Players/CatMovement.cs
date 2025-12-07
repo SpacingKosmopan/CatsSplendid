@@ -168,13 +168,16 @@ public class PlayerController : MonoBehaviour
         float jumpForce = Mathf.Lerp(minJumpForce, maxJumpForce, t);
 
         Vector3 forward = transform.forward.normalized;
-        Vector3 jumpVector = (Vector3.up + forward).normalized * jumpForce;
+
+        // 60% góra, 40% przód
+        Vector3 jumpVector = (Vector3.up * 0.6f + forward * 0.4f).normalized * jumpForce;
 
         rb.AddForce(jumpVector, ForceMode.Impulse);
 
         chargeTimer = 0f;
         UpdateUI();
     }
+
 
     // --------------------------
     // Landing
